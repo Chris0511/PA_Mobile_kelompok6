@@ -65,6 +65,7 @@ flutter:
   assets:
     - assets/foto_profil.jpg
     - assets/login.jpg
+    - assets/quiz.jpg
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

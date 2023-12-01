@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quizz_app/screens/crud_screen.dart';
 import 'package:quizz_app/screens/kategori_screen.dart';
+import 'package:quizz_app/screens/pilihkuis_screen.dart';
 import 'package:quizz_app/screens/profil_screen.dart';
 import 'package:quizz_app/ui/shared/color.dart';
 
@@ -12,15 +13,21 @@ class Home extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColor.primaryColor,
+      backgroundColor: AppColor.secondaryColor,
       appBar: AppBar(
         title: const Text('Home'),
       ),
-      body: Padding(
-        padding: EdgeInsets.symmetric(
-          vertical: MediaQuery.of(context).size.height * 0.1,
-          horizontal: MediaQuery.of(context).size.width * 0.05,
+      body: Container(
+        alignment: Alignment.center,
+        padding: EdgeInsets.all(8.0), // Adjust the padding here
+
+        // Container with white border
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white), // Border styling
+          borderRadius:
+              BorderRadius.circular(8.0), // Optional: Adjust border radius
         ),
+
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -35,6 +42,18 @@ class Home extends StatelessWidget {
                 ),
               ),
             ),
+            SizedBox(height: 16),
+
+            // Image widget for quiz.jpg
+            Image.asset(
+              'assets/quiz.jpg',
+              height: 300,
+              width: 500,
+              fit: BoxFit.cover,
+            ),
+
+            SizedBox(height: 16),
+
             Expanded(
               child: Center(
                 child: RawMaterialButton(
@@ -42,12 +61,12 @@ class Home extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => KategoriScreen(),
+                        builder: (context) => PilihKuisScreen(),
                       ),
                     );
                   },
                   shape: StadiumBorder(),
-                  fillColor: AppColor.secondaryColor,
+                  fillColor: AppColor.primaryColor,
                   child: Padding(
                     padding: EdgeInsets.symmetric(
                       vertical: 12.0,
@@ -148,8 +167,8 @@ class Home extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.category),
-              title: Text('Kategori'),
+              leading: Icon(Icons.star),
+              title: Text('Favorit'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
