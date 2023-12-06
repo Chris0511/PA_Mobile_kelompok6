@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:quizz_app/screens/kuis_screen.dart';
 
 class PilihKuisScreen extends StatefulWidget {
   const PilihKuisScreen({Key? key}) : super(key: key);
@@ -14,47 +15,52 @@ class _PilihKuisScreenState extends State<PilihKuisScreen> {
   List<Map<String, dynamic>> filteredQuizzes = [];
   TextEditingController _searchController = TextEditingController();
 
+  List<Map<String, dynamic>> selectedQuizzes = [];
+  bool isLoading = true;
+
   @override
   void initState() {
     super.initState();
-    // Call a function to fetch and display quizzes during initState
     _fetchQuizzes();
   }
 
   Future<void> _fetchQuizzes() async {
-    // Fetch categories from Firestore
-    final QuerySnapshot categorySnapshot =
-        await _firestore.collection('kuis').get();
+    try {
+      final QuerySnapshot categorySnapshot =
+          await _firestore.collection('kuis').get();
 
-    List<Map<String, dynamic>> retrievedQuizzes = [];
+      List<Map<String, dynamic>> retrievedQuizzes = [];
 
-    for (QueryDocumentSnapshot categoryDocument in categorySnapshot.docs) {
-      String categoryId = categoryDocument.id;
+      for (QueryDocumentSnapshot categoryDocument in categorySnapshot.docs) {
+        String categoryId = categoryDocument.id;
 
-      // Fetch quizzes from the subcollection of each category
-      final QuerySnapshot quizSnapshot = await _firestore
-          .collection('kuis/$categoryId/Pertanyaan')
-          .get(); // No need for $Pertanyaanid
+        final QuerySnapshot quizSnapshot = await _firestore
+            .collection('kuis/$categoryId/Pertanyaan')
+            .get();
 
-      for (QueryDocumentSnapshot quizDocument in quizSnapshot.docs) {
-        Map<String, dynamic> data = quizDocument.data() as Map<String, dynamic>;
+        for (QueryDocumentSnapshot quizDocument in quizSnapshot.docs) {
+          Map<String, dynamic> data =
+              quizDocument.data() as Map<String, dynamic>;
 
-        // Include the document ID and category name in the quiz data
-        data['documentId'] = quizDocument.id;
-        data['kategori'] = await getCategoryName(categoryId);
+          data['documentId'] = quizDocument.id;
+          data['kategori'] = await getCategoryName(categoryId);
 
-        retrievedQuizzes.add(data);
+          retrievedQuizzes.add(data);
+        }
       }
-    }
 
-    setState(() {
-      quizzes = retrievedQuizzes;
-      filteredQuizzes = quizzes; // Initialize filteredQuizzes with all quizzes initially
-    });
+      setState(() {
+        quizzes = retrievedQuizzes;
+        filteredQuizzes = quizzes;
+        isLoading = false; // Set isLoading to false when data is ready
+      });
+    } catch (error) {
+      // Handle errors
+      print('Error fetching quizzes: $error');
+    }
   }
 
   Future<String> getCategoryName(String categoryId) async {
-    // Fetch category name from Firestore based on category ID
     final DocumentSnapshot categoryDoc =
         await _firestore.doc('kuis/$categoryId').get();
     if (categoryDoc.exists) {
@@ -68,10 +74,53 @@ class _PilihKuisScreenState extends State<PilihKuisScreen> {
     setState(() {
       filteredQuizzes = quizzes
           .where((quiz) =>
-              quiz['pertanyaan'].toLowerCase().contains(query.toLowerCase()) ||
+              quiz['pertanyaan']
+                  .toLowerCase()
+                  .contains(query.toLowerCase()) ||
               quiz['kategori'].toLowerCase().contains(query.toLowerCase()))
           .toList();
     });
+  }
+
+  bool isQuizSelected(Map<String, dynamic> quiz) {
+    return selectedQuizzes.contains(quiz);
+  }
+
+  void _onQuizTap(Map<String, dynamic> quizData) {
+    setState(() {
+      if (isQuizSelected(quizData)) {
+        // batal pilih
+        selectedQuizzes.remove(quizData);
+      } else {
+        // pilih kuis
+        if (selectedQuizzes.length < 10) {
+          selectedQuizzes.add(quizData);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Anda hanya dapat memilih 10 kuis.'),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  List<Map<String, dynamic>> _getRandomQuizzes() {
+    List<Map<String, dynamic>> randomQuizzes = [];
+    final List<Map<String, dynamic>> availableQuizzes =
+        filteredQuizzes.isNotEmpty ? filteredQuizzes : quizzes;
+
+    if (availableQuizzes.length <= 10) {
+      randomQuizzes.addAll(availableQuizzes);
+    } else {
+      final List<Map<String, dynamic>> shuffledQuizzes =
+          List<Map<String, dynamic>>.from(availableQuizzes)
+            ..shuffle();
+      randomQuizzes = shuffledQuizzes.sublist(0, 10);
+    }
+
+    return randomQuizzes;
   }
 
   @override
@@ -89,7 +138,7 @@ class _PilihKuisScreenState extends State<PilihKuisScreen> {
               );
 
               if (selected != null && selected.isNotEmpty) {
-                // Handle the selected quiz, navigate, or perform any other action
+                // Handle search result if needed
               }
             },
           ),
@@ -97,62 +146,105 @@ class _PilihKuisScreenState extends State<PilihKuisScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Pilih Kuis yang Ingin Dikerjakan:',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 16),
-
-              // TextFormFiled for search query
-              TextField(
-                controller: _searchController,
-                onChanged: _filterQuizzes,
-                decoration: InputDecoration(
-                  labelText: 'Cari Kuis',
-                  suffixIcon: IconButton(
-                    icon: Icon(Icons.clear),
+        child: FutureBuilder(
+          future: _fetchQuizzes(), // Call _fetchQuizzes function here
+          builder: (context, snapshot) {
+            if (isLoading) {
+              return Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 16),
+                  ElevatedButton(
                     onPressed: () {
-                      _searchController.clear();
-                      _filterQuizzes('');
+                      setState(() {
+                        selectedQuizzes = _getRandomQuizzes();
+                      });
                     },
+                    child: Text('Pilih Acak'),
                   ),
-                ),
-              ),
-
-              SizedBox(height: 16),
-              
-              // Display quizzes for selection
-              if (filteredQuizzes.isNotEmpty)
-                Column(
-                  children: filteredQuizzes
-                      .map(
-                        (quizData) => Container(
-                          margin: EdgeInsets.symmetric(vertical: 8.0),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black),
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          child: ListTile(
-                            title: Text(quizData['pertanyaan']),
-                            subtitle: Text('Kategori: ${quizData['kategori']}'),
-                            onTap: () {
-                              // Navigate to the screen where the selected quiz can be worked on
-                            },
-                          ),
-                        ),
-                      )
-                      .toList(),
-                )
-              else
-                Text('Belum ada kuis yang tersedia.'),
-            ],
-          ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Pilih Kuis yang Ingin Dikerjakan:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: _filterQuizzes,
+                    decoration: InputDecoration(
+                      labelText: 'Cari Kuis',
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterQuizzes('');
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  if (filteredQuizzes.isNotEmpty)
+                    Expanded(
+                      child: ListView(
+                        children: filteredQuizzes
+                            .map(
+                              (quizData) => Container(
+                                margin: EdgeInsets.symmetric(vertical: 8.0),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: isQuizSelected(quizData)
+                                        ? Theme.of(context).primaryColor
+                                        : Colors.black,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                                child: ListTile(
+                                  title: Text(quizData['pertanyaan']),
+                                  subtitle:
+                                      Text('Kategori: ${quizData['kategori']}'),
+                                  onTap: () {
+                                    _onQuizTap(quizData);
+                                  },
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    )
+                  else
+                    Text('Belum ada kuis yang tersedia.'),
+                  SizedBox(height: 16),
+                ],
+              );
+            }
+          },
         ),
       ),
+      persistentFooterButtons: [
+        ElevatedButton(
+          onPressed: () {
+            if (selectedQuizzes.length >= 10) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => KuisScreen(selectedQuizzes),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Pilih 10 kuis untuk mulai.'),
+                ),
+              );
+            }
+          },
+          child: Text('Mulai Kuis'),
+        ),
+      ],
     );
   }
 }
@@ -197,7 +289,9 @@ class QuizSearchDelegate extends SearchDelegate<String> {
   Widget _buildSearchResults() {
     final List<Map<String, dynamic>> filteredList = quizzes
         .where((quiz) =>
-            quiz['pertanyaan'].toLowerCase().contains(query.toLowerCase()) ||
+            quiz['pertanyaan']
+                .toLowerCase()
+                .contains(query.toLowerCase()) ||
             quiz['kategori'].toLowerCase().contains(query.toLowerCase()))
         .toList();
 
@@ -209,7 +303,6 @@ class QuizSearchDelegate extends SearchDelegate<String> {
           title: Text(quiz['pertanyaan']),
           subtitle: Text('Kategori: ${quiz['kategori']}'),
           onTap: () {
-            // Handle the selected quiz, navigate, or perform any other action
             close(context, quiz['pertanyaan']);
           },
         );

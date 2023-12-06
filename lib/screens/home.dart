@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quizz_app/screens/crud_screen.dart';
-import 'package:quizz_app/screens/kategori_screen.dart';
 import 'package:quizz_app/screens/pilihkuis_screen.dart';
 import 'package:quizz_app/screens/profil_screen.dart';
 import 'package:quizz_app/ui/shared/color.dart';
@@ -162,19 +161,6 @@ class Home extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) => Home(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.star),
-              title: Text('Favorit'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => KategoriScreen(),
                   ),
                 );
               },

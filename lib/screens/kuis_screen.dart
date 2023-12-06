@@ -1,133 +1,185 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'hasilkuis_screen.dart';
 
 class KuisScreen extends StatefulWidget {
-  final String kategori;
+  final List<Map<String, dynamic>> selectedQuizzes;
 
-  KuisScreen({required this.kategori});
+  KuisScreen(this.selectedQuizzes);
 
   @override
   _KuisScreenState createState() => _KuisScreenState();
 }
 
 class _KuisScreenState extends State<KuisScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  int currentIndex = 0;
-  int totalPoin = 0;
-  List<Map<String, dynamic>> daftarKuis = [];
-  int selectedOption = -1; // -1 indicates no option selected
-
-  @override
-  void initState() {
-    super.initState();
-    _loadKuis();
-  }
-
-  void _loadKuis() async {
-    QuerySnapshot querySnapshot = await _firestore
-        .collection('kuis')
-        .where('kategori', isEqualTo: widget.kategori)
-        .get();
-
-    if (querySnapshot.docs.isNotEmpty) {
-      daftarKuis = querySnapshot.docs
-          .map((doc) => doc.data() as Map<String, dynamic>)
-          .toList();
-
-      setState(() {});
-    }
-  }
-
-  void _jawabKuis(int selectedOption) {
-    if (currentIndex < daftarKuis.length) {
-      int jawabanBenar = daftarKuis[currentIndex]['jawaban_benar'];
-
-      if (selectedOption == jawabanBenar) {
-        totalPoin += 10;
-      }
-
-      // Pindah ke pertanyaan berikutnya
-      currentIndex++;
-      selectedOption = -1; // Reset selected option
-
-      if (currentIndex >= daftarKuis.length) {
-        // Kuis selesai
-        _tampilkanHasil();
-      } else {
-        setState(() {});
-      }
-    }
-  }
-
-  void _tampilkanHasil() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Hasil Kuis'),
-          content: Text('Total Poin: $totalPoin'),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop(); // Kembali ke halaman sebelumnya
-              },
-              child: Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  int selectedOption = -1; // Initialize with an invalid value
+  int currentQuizIndex = 0;
+  bool isAnswerSubmitted = false;
+  int totalScore = 0;
 
   @override
   Widget build(BuildContext context) {
+    final quizData = widget.selectedQuizzes[currentQuizIndex];
+    final isLastQuestion =
+        currentQuizIndex == widget.selectedQuizzes.length - 1;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kuis - ${widget.kategori}'),
+        title: Text('Kuis'),
       ),
-      body: daftarKuis.isNotEmpty
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Display current question number and poin
+            Row(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    daftarKuis[currentIndex]['pertanyaan'],
-                    style: TextStyle(fontSize: 18),
-                  ),
+                Text(
+                  'Kuis ${currentQuizIndex + 1}/${widget.selectedQuizzes.length}',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Column(
-                  children: [
-                    for (int i = 1; i <= 4; i++)
-                      RadioListTile<int>(
-                        title: Text(daftarKuis[currentIndex]['pilihan_$i']),
-                        value: i,
-                        groupValue: selectedOption,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedOption = value!;
-                          });
-                        },
-                      ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (selectedOption != -1) {
-                        _jawabKuis(selectedOption);
-                      }
-                    },
-                    child: Text('Jawab'),
-                  ),
+                SizedBox(width: 8.0),
+                Spacer(),
+                Text(
+                  'Poin: $totalScore',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
-            )
-          : Center(
-              child: CircularProgressIndicator(),
             ),
+            SizedBox(height: 8.0),
+            Text(
+              '${quizData['pertanyaan']}',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8.0),
+
+            // Display radio buttons for options
+            Column(
+              children: [
+                for (int i = 1; i <= 4; i++)
+                  RadioListTile(
+                    title:
+                        Text('Pilihan $i: ${quizData['option$i'] as String}'),
+                    value: i,
+                    groupValue: selectedOption,
+                    onChanged: isAnswerSubmitted
+                        ? null
+                        : (value) {
+                            setState(() {
+                              selectedOption = value as int;
+                            });
+                          },
+                  ),
+              ],
+            ),
+            SizedBox(height: 16.0),
+
+            // Display buttons in a Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    // Handle answer button click
+                    if (selectedOption != -1 && !isAnswerSubmitted) {
+                      _checkAnswer(quizData['jawaban_benar'] as int, context);
+                    }
+                  },
+                  child: Text('Jawab'),
+                ),
+                if (!isLastQuestion)
+                  Spacer(), // Add Spacer to create space between buttons
+                if (!isLastQuestion)
+                  ElevatedButton(
+                    onPressed: () {
+                      // Handle next button click
+                      if (isAnswerSubmitted) {
+                        setState(() {
+                          currentQuizIndex++;
+                          selectedOption =
+                              -1; // Reset selected option for the next quiz
+                          isAnswerSubmitted =
+                              false; // Reset answer submission status
+                        });
+                      }
+                    },
+                    child: Text('Next'),
+                  ),
+                if (isLastQuestion && isAnswerSubmitted)
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navigate to HasilKuisScreen
+                      _navigateToHasilKuisScreen(context);
+                    },
+                    child: Text('Lihat Hasil'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _checkAnswer(int correctAnswer, BuildContext context) {
+    if (selectedOption == correctAnswer) {
+      _showAnswerNotification(context, 'Jawaban Benar! Poin +10', Colors.green);
+      setState(() {
+        totalScore += 10;
+        // Store user's answer in the selected question
+        widget.selectedQuizzes[currentQuizIndex]['user_answer'] =
+            selectedOption;
+      });
+    } else {
+      _showAnswerNotification(context, 'Jawaban Salah! Poin +0', Colors.red);
+      // Store user's answer in the selected question
+      widget.selectedQuizzes[currentQuizIndex]['user_answer'] = selectedOption;
+    }
+
+    // Mark answer as submitted
+    setState(() {
+      isAnswerSubmitted = true;
+    });
+  }
+
+  void _navigateToHasilKuisScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HasilKuisScreen(
+          questions: widget.selectedQuizzes,
+          correctAnswersCount: _calculateCorrectAnswersCount(),
+          incorrectAnswersCount: _calculateIncorrectAnswersCount(),
+          totalScore: totalScore,
+        ),
+      ),
+    );
+  }
+
+  int _calculateCorrectAnswersCount() {
+    int correctCount = 0;
+    for (var question in widget.selectedQuizzes) {
+      final correctAnswer = question['jawaban_benar'] as int;
+      final userAnswer = question['user_answer'] as int?;
+      if (userAnswer != null && userAnswer == correctAnswer) {
+        correctCount++;
+      }
+    }
+    return correctCount;
+  }
+
+  int _calculateIncorrectAnswersCount() {
+    return widget.selectedQuizzes.length - _calculateCorrectAnswersCount();
+  }
+
+  void _showAnswerNotification(
+      BuildContext context, String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 1),
+        backgroundColor: color,
+      ),
     );
   }
 }
