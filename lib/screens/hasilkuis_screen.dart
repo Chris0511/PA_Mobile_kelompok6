@@ -63,13 +63,10 @@ class HasilKuisScreen extends StatelessWidget {
             SizedBox(height: 16.0),
             // Home button
             ElevatedButton(
-              onPressed: () {
-                // Navigate to home.dart or perform any other action
+              onPressed: () {              
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) =>
-                          Home()), // Replace HomeScreen() with the actual class of your home.dart
+                  MaterialPageRoute(builder: (context) => Home()),
                 );
               },
               child: Text('Home'),
